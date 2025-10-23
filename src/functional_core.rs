@@ -1,4 +1,5 @@
 // ACE Functional Core - Pure Functions
+#![allow(dead_code)]
 use crate::types::*;
 use chrono::Utc;
 use regex::Regex;

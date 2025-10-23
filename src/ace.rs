@@ -4,7 +4,7 @@ use crate::imperative_shell::*;
 use crate::types::*;
 
 pub struct ACEGenerator {
-    client: OllamaClient,
+    pub client: OllamaClient,
 }
 
 impl ACEGenerator {
@@ -12,13 +12,14 @@ impl ACEGenerator {
         Self { client }
     }
 
+    #[allow(unused)]
     pub async fn generate_trajectory(
         &self,
         query: &str,
         context: &ContextState,
     ) -> Result<Trajectory> {
         let bullets = get_relevant_bullets(context, query, 10);
-        let context_text = build_context_prompt(&bullets);
+        let _context_text = build_context_prompt(&bullets);
 
         let prompt = format!(
             "{}\n\nProvide a brief answer in this format:\nSTEPS: [step1; step2; step3]\nOUTCOME: your answer here\nSUCCESS: true\nUSED_BULLETS: []",
@@ -31,7 +32,7 @@ impl ACEGenerator {
 }
 
 pub struct ACEReflector {
-    client: OllamaClient,
+    pub client: OllamaClient,
 }
 
 impl ACEReflector {
@@ -39,8 +40,9 @@ impl ACEReflector {
         Self { client }
     }
 
+    #[allow(unused)]
     pub async fn reflect(&self, trajectory: &Trajectory) -> Result<Vec<Insight>> {
-        let steps_text: Vec<String> = trajectory
+        let _steps_text: Vec<String> = trajectory
             .steps
             .iter()
             .take(3)
@@ -68,10 +70,12 @@ impl ACECurator {
         }
     }
 
+    #[allow(unused)]
     pub fn create_delta(&self, insights: Vec<Insight>) -> DeltaUpdate {
         insights_to_delta(insights)
     }
 
+    #[allow(unused)]
     pub fn apply_delta(&mut self, delta: &DeltaUpdate) {
         self.context = merge_delta(&self.context, delta);
     }
@@ -115,10 +119,11 @@ pub struct ContextStats {
     pub avg_helpfulness: f64,
 }
 
+#[allow(dead_code)]
 pub struct ACEFramework {
-    generator: ACEGenerator,
-    reflector: ACEReflector,
-    curator: ACECurator,
+    pub generator: ACEGenerator,
+    pub reflector: ACEReflector,
+    pub curator: ACECurator,
 }
 
 impl ACEFramework {

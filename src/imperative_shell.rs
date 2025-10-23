@@ -1,4 +1,5 @@
 // ACE Imperative Shell - Side Effects Layer
+#![allow(dead_code)]
 use crate::types::*;
 use futures::stream::StreamExt;
 use reqwest::Client;
