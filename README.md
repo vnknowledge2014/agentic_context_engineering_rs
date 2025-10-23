@@ -124,9 +124,13 @@ Rust version có performance cao hơn Python:
 ## ✨ Rust Advantages
 
 ✅ **Zero-cost Abstractions** - No runtime overhead
+
 ✅ **Memory Safety** - No null pointers, no data races
+
 ✅ **Fearless Concurrency** - Safe parallel execution
+
 ✅ **Performance** - Native speed
+
 ✅ **Type Safety** - Compile-time guarantees
 
 ---
