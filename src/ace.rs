@@ -156,18 +156,48 @@ impl ACEFramework {
         query: &str,
     ) -> Result<impl futures::Stream<Item = Result<String>>> {
         let context = self.curator.get_context();
-        let bullets = get_relevant_bullets(context, query, 10);
-        let _context_text = build_context_prompt(&bullets);
+        
+        // Get recent conversation bullets
+        let mut conv_bullets: Vec<_> = context.bullets.values()
+            .filter(|b| b.tags.contains(&"conversation".to_string()))
+            .collect();
+        conv_bullets.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+        let recent_conv: Vec<_> = conv_bullets.into_iter().take(1).cloned().collect();
+        
+        let is_continue = query.trim().to_lowercase() == "continue" || 
+                         query.trim().to_lowercase() == "tiếp tục";
 
-        let prompt = format!(
-            "{}\n\nProvide a brief answer in this format:\nSTEPS: [step1; step2; step3]\nOUTCOME: your answer here\nSUCCESS: true\nUSED_BULLETS: []",
-            query
-        );
+        let prompt = if is_continue && !recent_conv.is_empty() {
+            let last_conv = &recent_conv[0].content;
+            format!(
+                "{}\n\nContinue from where you stopped. Do not repeat, just continue:",
+                last_conv
+            )
+        } else if !recent_conv.is_empty() {
+            let context_text = build_context_prompt(&recent_conv);
+            format!(
+                "Previous conversation:\n{}\n\nNew query: {}\n\nAnswer:",
+                context_text, query
+            )
+        } else {
+            query.to_string()
+        };
 
         let stream = self.generator.client.generate_stream(&prompt).await?;
         Ok(stream)
     }
 
+    pub async fn learn_from_interaction(&mut self, query: &str, response: &str) {
+        // Save full conversation as context
+        let conv_text = format!("Q: {}\nA: {}", query, response);
+        let bullet = create_bullet(conv_text, vec!["conversation".to_string()]);
+        let delta = DeltaUpdate {
+            bullets: vec![bullet],
+            timestamp: chrono::Utc::now(),
+        };
+        self.curator.apply_delta(&delta);
+    }
+    
     pub fn get_context_stats(&self) -> ContextStats {
         self.curator.get_stats()
     }

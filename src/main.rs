@@ -29,10 +29,12 @@ async fn demo_mode(ace: &mut ACEFramework) {
 
         match ace.process_query_stream(query).await {
             Ok(mut stream) => {
+                let mut full_response = String::new();
                 while let Some(result) = stream.next().await {
                     match result {
                         Ok(chunk) => {
                             print!("{}", chunk);
+                            full_response.push_str(&chunk);
                             io::stdout().flush().unwrap();
                         }
                         Err(e) => {
@@ -42,6 +44,9 @@ async fn demo_mode(ace: &mut ACEFramework) {
                     }
                 }
                 println!();
+                
+                // Learn from interaction
+                ace.learn_from_interaction(query, &full_response).await;
             }
             Err(e) => log_error(&format!("Query failed: {}", e)),
         }
@@ -99,10 +104,12 @@ async fn interactive_mode(ace: &mut ACEFramework) {
 
                 match ace.process_query_stream(input).await {
                     Ok(mut stream) => {
+                        let mut full_response = String::new();
                         while let Some(result) = stream.next().await {
                             match result {
                                 Ok(chunk) => {
                                     print!("{}", chunk);
+                                    full_response.push_str(&chunk);
                                     io::stdout().flush().unwrap();
                                 }
                                 Err(e) => {
@@ -112,6 +119,9 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                             }
                         }
                         println!();
+
+                        // Learn from this interaction
+                        ace.learn_from_interaction(input, &full_response).await;
 
                         let stats = ace.get_context_stats();
                         if stats.total_bullets > 0 {
