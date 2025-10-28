@@ -28,19 +28,35 @@ impl OllamaClient {
     }
 
     pub async fn generate(&self, prompt: &str) -> Result<String> {
+        self.generate_with_thinking(prompt, false).await
+    }
+
+    pub async fn generate_with_thinking(&self, prompt: &str, enable_thinking: bool) -> Result<String> {
         let url = format!("{}/api/generate", self.config.url);
+        let mut options = json!({
+            "temperature": self.config.temperature,
+            "num_predict": self.config.max_tokens.min(512),
+            "num_ctx": self.config.context_window.min(2048)
+        });
+        
+        if enable_thinking {
+            options["enable_thinking"] = json!(true);
+        }
+        
         let payload = json!({
             "model": self.config.model,
             "prompt": prompt,
             "stream": false,
-            "options": {
-                "temperature": self.config.temperature,
-                "num_predict": self.config.max_tokens.min(512),
-                "num_ctx": self.config.context_window.min(2048)
-            }
+            "options": options
         });
 
-        match self.client.post(&url).json(&payload).send().await {
+        let timeout = if enable_thinking { 
+            std::time::Duration::from_secs(300) 
+        } else { 
+            std::time::Duration::from_secs(120) 
+        };
+
+        match self.client.post(&url).json(&payload).timeout(timeout).send().await {
             Ok(resp) if resp.status().is_success() => {
                 let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
                 Ok(json["response"].as_str().unwrap_or("").trim().to_string())
@@ -54,22 +70,43 @@ impl OllamaClient {
         &self,
         prompt: &str,
     ) -> Result<impl futures::Stream<Item = Result<String>>> {
+        self.generate_stream_with_thinking(prompt, false).await
+    }
+
+    pub async fn generate_stream_with_thinking(
+        &self,
+        prompt: &str,
+        enable_thinking: bool,
+    ) -> Result<impl futures::Stream<Item = Result<String>>> {
         let url = format!("{}/api/generate", self.config.url);
+        let mut options = json!({
+            "temperature": self.config.temperature,
+            "num_predict": self.config.max_tokens.min(512),
+            "num_ctx": self.config.context_window.min(2048)
+        });
+        
+        if enable_thinking {
+            options["enable_thinking"] = json!(true);
+        }
+        
         let payload = json!({
             "model": self.config.model,
             "prompt": prompt,
             "stream": true,
-            "options": {
-                "temperature": self.config.temperature,
-                "num_predict": self.config.max_tokens.min(512),
-                "num_ctx": self.config.context_window.min(2048)
-            }
+            "options": options
         });
+
+        let timeout = if enable_thinking { 
+            std::time::Duration::from_secs(300) 
+        } else { 
+            std::time::Duration::from_secs(120) 
+        };
 
         let resp = self
             .client
             .post(&url)
             .json(&payload)
+            .timeout(timeout)
             .send()
             .await
             .map_err(|e| e.to_string())?;
@@ -78,19 +115,41 @@ impl OllamaClient {
             return Err(format!("API error: {}", resp.status()));
         }
 
-        let stream = resp.bytes_stream().map(|result| match result {
-            Ok(bytes) => {
-                let text = String::from_utf8_lossy(&bytes);
-                for line in text.lines() {
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-                        if let Some(response) = json["response"].as_str() {
-                            return Ok(response.to_string());
+        let stream = resp.bytes_stream().scan(false, |in_thinking, result| {
+            async move {
+                match result {
+                    Ok(bytes) => {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let mut output = String::new();
+                        
+                        for line in text.lines() {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                                // Handle thinking tokens
+                                if let Some(thinking) = json["thinking"].as_str() {
+                                    if !*in_thinking {
+                                        output.push_str("\n💭 [Thinking...] ");
+                                        *in_thinking = true;
+                                    }
+                                    output.push_str(thinking);
+                                    continue;
+                                }
+                                
+                                if *in_thinking && json["response"].is_string() {
+                                    output.push_str("\n\n🤖 [Answer:] ");
+                                    *in_thinking = false;
+                                }
+                                
+                                if let Some(response) = json["response"].as_str() {
+                                    output.push_str(response);
+                                }
+                            }
                         }
+                        
+                        Some(Ok(output))
                     }
+                    Err(e) => Some(Err(e.to_string())),
                 }
-                Ok(String::new())
             }
-            Err(e) => Err(e.to_string()),
         });
 
         Ok(stream)

@@ -2,6 +2,7 @@
 mod ace;
 mod functional_core;
 mod imperative_shell;
+mod tools;
 mod types;
 
 use ace::ACEFramework;
@@ -61,9 +62,10 @@ async fn demo_mode(ace: &mut ACEFramework) {
 
 async fn interactive_mode(ace: &mut ACEFramework) {
     log_info("ACE Interactive Mode");
-    println!("\nCommands: 'stats', 'help', 'exit'");
+    println!("\nCommands: 'stats', 'help', 'exit', '/think', '/search', '/research', '/thinking on|off'");
     println!("{}", "-".repeat(60));
 
+    let mut thinking_mode = false;
     let stdin = io::stdin();
     loop {
         print!("\n👤 You: ");
@@ -96,13 +98,58 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                 println!("\n📖 ACE Framework Help");
                 println!("  - Ask any question naturally");
                 println!("  - 'stats' - Show context statistics");
+                println!("  - '/think <query>' - Deep thinking mode");
+                println!("  - '/search <query>' - Search in context");
+                println!("  - '/research <topic>' - Deep research mode");
+                println!("  - '/thinking on|off' - Toggle native thinking mode");
                 println!("  - 'exit' - Exit system");
+            }
+            _ if input.starts_with("/thinking ") => {
+                let mode = &input[10..].trim().to_lowercase();
+                match mode.as_str() {
+                    "on" => {
+                        thinking_mode = true;
+                        log_success("Native thinking mode enabled");
+                    }
+                    "off" => {
+                        thinking_mode = false;
+                        log_success("Native thinking mode disabled");
+                    }
+                    _ => log_error("Use: /thinking on or /thinking off"),
+                }
+            }
+            _ if input.starts_with("/think ") => {
+                let query = &input[7..];
+                print!("\n🧠 Thinking:\n");
+                match ace.think(query).await {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => log_error(&format!("Error: {}", e)),
+                }
+            }
+            _ if input.starts_with("/search ") => {
+                let query = &input[8..];
+                let result = ace.search_query(query);
+                println!("\n🔍 {}", result);
+            }
+            _ if input.starts_with("/research ") => {
+                let topic = &input[10..];
+                print!("\n🔬 Researching:\n");
+                match ace.research(topic).await {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => log_error(&format!("Error: {}", e)),
+                }
             }
             _ => {
                 print!("\n🤖 ACE:\n");
                 io::stdout().flush().unwrap();
 
-                match ace.process_query_stream(input).await {
+                let stream_result = if thinking_mode {
+                    ace.generator.client.generate_stream_with_thinking(input, true).await
+                } else {
+                    ace.process_query_stream(input).await
+                };
+
+                match stream_result {
                     Ok(mut stream) => {
                         let mut full_response = String::new();
                         while let Some(result) = stream.next().await {
@@ -121,7 +168,9 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                         println!();
 
                         // Learn from this interaction
-                        ace.learn_from_interaction(input, &full_response).await;
+                        if !thinking_mode {
+                            ace.learn_from_interaction(input, &full_response).await;
+                        }
 
                         let stats = ace.get_context_stats();
                         if stats.total_bullets > 0 {

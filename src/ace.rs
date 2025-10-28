@@ -1,6 +1,7 @@
 // ACE Framework - Agentic Context Engineering
 use crate::functional_core::*;
 use crate::imperative_shell::*;
+use crate::tools::*;
 use crate::types::*;
 
 pub struct ACEGenerator {
@@ -124,6 +125,9 @@ pub struct ACEFramework {
     pub generator: ACEGenerator,
     pub reflector: ACEReflector,
     pub curator: ACECurator,
+    pub thinking_tool: ThinkingTool,
+    pub search_tool: SearchTool,
+    pub research_tool: DeepResearchTool,
 }
 
 impl ACEFramework {
@@ -135,6 +139,9 @@ impl ACEFramework {
             generator: ACEGenerator::new(client1),
             reflector: ACEReflector::new(client2),
             curator: ACECurator::new(),
+            thinking_tool: ThinkingTool,
+            search_tool: SearchTool,
+            research_tool: DeepResearchTool,
         }
     }
 
@@ -196,6 +203,35 @@ impl ACEFramework {
             timestamp: chrono::Utc::now(),
         };
         self.curator.apply_delta(&delta);
+    }
+    
+    pub async fn think(&self, query: &str) -> Result<String> {
+        self.thinking_tool.think(query, &self.generator.client).await
+    }
+
+    pub fn search_query(&self, query: &str) -> String {
+        let context = self.curator.get_context();
+        let results = self.search_tool.search(query, &context.bullets);
+        
+        if results.is_empty() {
+            return "No results found.".to_string();
+        }
+        
+        let mut output = "Search results:\n".to_string();
+        for (i, r) in results.iter().enumerate() {
+            output.push_str(&format!(
+                "{}. {}... (relevance: {})\n",
+                i + 1,
+                &r.content.chars().take(100).collect::<String>(),
+                r.relevance
+            ));
+        }
+        output
+    }
+
+    pub async fn research(&self, topic: &str) -> Result<String> {
+        let context = self.curator.get_context();
+        self.research_tool.research(topic, &self.generator.client, &context.bullets).await
     }
     
     pub fn get_context_stats(&self) -> ContextStats {
