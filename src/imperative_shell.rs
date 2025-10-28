@@ -35,8 +35,8 @@ impl OllamaClient {
         let url = format!("{}/api/generate", self.config.url);
         let mut options = json!({
             "temperature": self.config.temperature,
-            "num_predict": self.config.max_tokens.min(128),
-            "num_ctx": self.config.context_window.min(512)
+            "num_predict": self.config.max_tokens,
+            "num_ctx": self.config.context_window
         });
         
         if enable_thinking {
@@ -81,8 +81,8 @@ impl OllamaClient {
         let url = format!("{}/api/generate", self.config.url);
         let mut options = json!({
             "temperature": self.config.temperature,
-            "num_predict": self.config.max_tokens.min(128),
-            "num_ctx": self.config.context_window.min(512)
+            "num_predict": self.config.max_tokens,
+            "num_ctx": self.config.context_window
         });
         
         if enable_thinking {
