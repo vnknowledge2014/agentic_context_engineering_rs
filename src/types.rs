@@ -69,8 +69,8 @@ impl Default for OllamaConfig {
             url: "http://localhost:11434".to_string(),
             model: "qwen2.5-coder:1.5b".to_string(),
             temperature: 0.7,
-            max_tokens: 256,
-            context_window: 2048,
+            max_tokens: 128,
+            context_window: 512,
         }
     }
 }

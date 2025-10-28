@@ -6,63 +6,143 @@ mod tools;
 mod types;
 
 use ace::ACEFramework;
+use tools::{SearchTool, ThinkingTool, DeepResearchTool};
 use futures::StreamExt;
 use imperative_shell::{log_error, log_info, log_success};
 use std::io::{self, Write};
 use types::OllamaConfig;
 
 async fn demo_mode(ace: &mut ACEFramework) {
-    log_info("ACE Demo Mode - Agentic Context Engineering");
+    log_info("ACE Demo Mode - Testing All Features");
+    println!("\n{}", "=".repeat(60));
 
-    let queries = vec![
-        "Agentic Context Engineering là gì?",
-        "Viết Rust function tính fibonacci",
-        "Phân tích ưu nhược điểm của ACE framework",
-    ];
-
-    for (i, query) in queries.iter().enumerate() {
-        println!("\n{}", "=".repeat(60));
-        println!("Query {}: {}", i + 1, query);
-        println!("{}", "=".repeat(60));
-
-        print!("\n🤖 Response:\n");
-        io::stdout().flush().unwrap();
-
-        match ace.process_query_stream(query).await {
-            Ok(mut stream) => {
-                let mut full_response = String::new();
-                while let Some(result) = stream.next().await {
-                    match result {
-                        Ok(chunk) => {
-                            print!("{}", chunk);
-                            full_response.push_str(&chunk);
-                            io::stdout().flush().unwrap();
-                        }
-                        Err(e) => {
-                            log_error(&format!("Stream error: {}", e));
-                            break;
-                        }
-                    }
+    // 1. Basic ACE Query
+    println!("\n🧪 Test 1: Basic ACE Query");
+    println!("{}", "-".repeat(60));
+    let query = "What is Agentic Context Engineering?";
+    println!("Query: {}", query);
+    print!("\n🤖 Response:\n");
+    io::stdout().flush().unwrap();
+    
+    match ace.process_query_stream(query).await {
+        Ok(mut stream) => {
+            let mut full_response = String::new();
+            while let Some(result) = stream.next().await {
+                if let Ok(chunk) = result {
+                    print!("{}", chunk);
+                    full_response.push_str(&chunk);
+                    io::stdout().flush().unwrap();
                 }
-                println!();
-                
-                // Learn from interaction
-                ace.learn_from_interaction(query, &full_response).await;
             }
-            Err(e) => log_error(&format!("Query failed: {}", e)),
+            println!();
+            ace.learn_from_interaction(query, &full_response).await;
         }
-
-        let stats = ace.get_context_stats();
-        println!(
-            "\n📈 Context: {} bullets, version {}\n",
-            stats.total_bullets, stats.version
-        );
+        Err(e) => log_error(&format!("Error: {}", e)),
     }
+    let stats = ace.get_context_stats();
+    println!("📈 Context: {} bullets learned", stats.total_bullets);
+
+    // 2. Context Learning
+    println!("\n{}", "=".repeat(60));
+    println!("\n🧪 Test 2: Context Learning");
+    println!("{}", "-".repeat(60));
+    let query = "Write a Rust function to calculate factorial";
+    println!("Query: {}", query);
+    print!("\n🤖 Response:\n");
+    io::stdout().flush().unwrap();
+    
+    match ace.process_query_stream(query).await {
+        Ok(mut stream) => {
+            let mut full_response = String::new();
+            while let Some(result) = stream.next().await {
+                if let Ok(chunk) = result {
+                    print!("{}", chunk);
+                    full_response.push_str(&chunk);
+                    io::stdout().flush().unwrap();
+                }
+            }
+            println!();
+            ace.learn_from_interaction(query, &full_response).await;
+        }
+        Err(e) => log_error(&format!("Error: {}", e)),
+    }
+    let stats = ace.get_context_stats();
+    println!("📈 Context: {} bullets learned", stats.total_bullets);
+
+    // 3. Search in Context
+    println!("\n{}", "=".repeat(60));
+    println!("\n🧪 Test 3: Search in Context");
+    println!("{}", "-".repeat(60));
+    let search_tool = SearchTool::new(false);
+    let context = ace.curator.get_context();
+    let results = search_tool.search_context("Rust", &context.bullets);
+    println!("🔍 Search 'Rust': Found {} results", results.len());
+    for (i, r) in results.iter().take(2).enumerate() {
+        let preview: String = r.content.chars().take(60).collect();
+        println!("  {}. {}...", i + 1, preview);
+    }
+
+    // 4. Thinking Mode
+    println!("\n{}", "=".repeat(60));
+    println!("\n🧪 Test 4: Deep Thinking");
+    println!("{}", "-".repeat(60));
+    let query = "Compare functional vs OOP";
+    println!("Query: {}", query);
+    println!("\n🧠 Thinking:");
+    match ace.think(query).await {
+        Ok(response) => {
+            let preview: String = response.chars().take(200).collect();
+            println!("{}...", preview);
+        }
+        Err(e) => log_error(&format!("Error: {}", e)),
+    }
+
+    // 5. Web Search
+    println!("\n{}", "=".repeat(60));
+    println!("\n🧪 Test 5: Web Search");
+    println!("{}", "-".repeat(60));
+    let search_tool_web = SearchTool::new(true);
+    println!("🔍 Searching 'Rust programming'...");
+    let web_results = search_tool_web.search("Rust programming", &context.bullets).await;
+    println!("Found {} results (context + web)", web_results.len());
+    for (i, r) in web_results.iter().take(2).enumerate() {
+        let source = if r.source == "web" { "🌐" } else { "📚" };
+        let preview: String = r.content.chars().take(60).collect();
+        println!("  {}. {} {}...", i + 1, source, preview);
+    }
+
+    // 6. Deep Research
+    println!("\n{}", "=".repeat(60));
+    println!("\n🧪 Test 6: Deep Research");
+    println!("{}", "-".repeat(60));
+    let topic = "Functional Programming";
+    println!("Topic: {}", topic);
+    println!("\n🔬 Researching...");
+    match ace.research(topic).await {
+        Ok(report) => {
+            let lines: Vec<&str> = report.lines().take(15).collect();
+            println!("{}", lines.join("\n"));
+            println!("...");
+        }
+        Err(e) => log_error(&format!("Error: {}", e)),
+    }
+
+    // Final Stats
+    println!("\n{}", "=".repeat(60));
+    println!("\n📊 Final Statistics");
+    println!("{}", "-".repeat(60));
+    let stats = ace.get_context_stats();
+    println!("  Total bullets: {}", stats.total_bullets);
+    println!("  Helpful bullets: {}", stats.helpful_bullets);
+    println!("  Context version: {}", stats.version);
+    println!("  Avg helpfulness: {:.2}", stats.avg_helpfulness);
+    println!("\n✅ All tests completed!");
+    println!("{}", "=".repeat(60));
 }
 
 async fn interactive_mode(ace: &mut ACEFramework) {
     log_info("ACE Interactive Mode");
-    println!("\nCommands: 'stats', 'help', 'exit', '/think', '/search', '/research', '/thinking on|off'");
+    println!("\nCommands: 'stats', 'help', 'exit', '/think', '/search', '/research', '/thinking on|off', '/web on|off'");
     println!("{}", "-".repeat(60));
 
     let mut thinking_mode = false;
@@ -159,11 +239,7 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                 print!("\n🤖 ACE:\n");
                 io::stdout().flush().unwrap();
 
-                let stream_result = if thinking_mode {
-                    ace.generator.client.generate_stream_with_thinking(input, true).await
-                } else {
-                    ace.process_query_stream(input).await
-                };
+                let stream_result = ace.process_query_stream(input).await;
 
                 match stream_result {
                     Ok(mut stream) => {
