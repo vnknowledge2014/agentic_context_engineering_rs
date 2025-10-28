@@ -99,9 +99,10 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                 println!("  - Ask any question naturally");
                 println!("  - 'stats' - Show context statistics");
                 println!("  - '/think <query>' - Deep thinking mode");
-                println!("  - '/search <query>' - Search in context");
+                println!("  - '/search <query>' - Search in context/web");
                 println!("  - '/research <topic>' - Deep research mode");
                 println!("  - '/thinking on|off' - Toggle native thinking mode");
+                println!("  - '/web on|off' - Toggle web search (like OpenAI)");
                 println!("  - 'exit' - Exit system");
             }
             _ if input.starts_with("/thinking ") => {
@@ -118,6 +119,20 @@ async fn interactive_mode(ace: &mut ACEFramework) {
                     _ => log_error("Use: /thinking on or /thinking off"),
                 }
             }
+            _ if input.starts_with("/web ") => {
+                let mode = &input[5..].trim().to_lowercase();
+                match mode.as_str() {
+                    "on" => {
+                        ace.web_search_enabled = true;
+                        log_success("🌐 Web search enabled (like OpenAI)");
+                    }
+                    "off" => {
+                        ace.web_search_enabled = false;
+                        log_success("Web search disabled");
+                    }
+                    _ => log_error("Use: /web on or /web off"),
+                }
+            }
             _ if input.starts_with("/think ") => {
                 let query = &input[7..];
                 print!("\n🧠 Thinking:\n");
@@ -128,8 +143,9 @@ async fn interactive_mode(ace: &mut ACEFramework) {
             }
             _ if input.starts_with("/search ") => {
                 let query = &input[8..];
-                let result = ace.search_query(query);
-                println!("\n🔍 {}", result);
+                print!("\n🔍 Searching...\n");
+                let result = ace.search_query(query).await;
+                println!("{}", result);
             }
             _ if input.starts_with("/research ") => {
                 let topic = &input[10..];

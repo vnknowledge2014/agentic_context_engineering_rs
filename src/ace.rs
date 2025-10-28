@@ -126,8 +126,7 @@ pub struct ACEFramework {
     pub reflector: ACEReflector,
     pub curator: ACECurator,
     pub thinking_tool: ThinkingTool,
-    pub search_tool: SearchTool,
-    pub research_tool: DeepResearchTool,
+    pub web_search_enabled: bool,
 }
 
 impl ACEFramework {
@@ -140,8 +139,7 @@ impl ACEFramework {
             reflector: ACEReflector::new(client2),
             curator: ACECurator::new(),
             thinking_tool: ThinkingTool,
-            search_tool: SearchTool,
-            research_tool: DeepResearchTool,
+            web_search_enabled: false,
         }
     }
 
@@ -209,29 +207,35 @@ impl ACEFramework {
         self.thinking_tool.think(query, &self.generator.client).await
     }
 
-    pub fn search_query(&self, query: &str) -> String {
+    pub async fn search_query(&self, query: &str) -> String {
         let context = self.curator.get_context();
-        let results = self.search_tool.search(query, &context.bullets);
+        let search_tool = SearchTool::new(self.web_search_enabled);
+        let results = search_tool.search(query, &context.bullets).await;
         
         if results.is_empty() {
             return "No results found.".to_string();
         }
         
-        let mut output = "Search results:\n".to_string();
+        let mut output = String::new();
         for (i, r) in results.iter().enumerate() {
+            let source = if r.source == "web" { "🌐" } else { "📚" };
             output.push_str(&format!(
-                "{}. {}... (relevance: {})\n",
+                "{}. {} {}...\n",
                 i + 1,
-                &r.content.chars().take(100).collect::<String>(),
-                r.relevance
+                source,
+                &r.content.chars().take(100).collect::<String>()
             ));
+            if let Some(url) = &r.url {
+                output.push_str(&format!("   🔗 {}\n", url));
+            }
         }
         output
     }
 
     pub async fn research(&self, topic: &str) -> Result<String> {
         let context = self.curator.get_context();
-        self.research_tool.research(topic, &self.generator.client, &context.bullets).await
+        let research_tool = DeepResearchTool::new(self.web_search_enabled);
+        research_tool.research(topic, &self.generator.client, &context.bullets).await
     }
     
     pub fn get_context_stats(&self) -> ContextStats {
